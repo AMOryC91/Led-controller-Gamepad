@@ -29,20 +29,16 @@ class BluetoothController(private val context: Context) {
     }
 
     init {
+        // Проверки и запуск сканирования, если все условия выполнены
         if (bluetoothAdapter == null) {
             Log.e(TAG, "BluetoothAdapter is null")
-            return
-        }
-        if (!bluetoothAdapter.isEnabled) {
+        } else if (!bluetoothAdapter.isEnabled) {
             Log.e(TAG, "Bluetooth is not enabled")
-            return
-        }
-        // Проверяем наличие разрешения BLUETOOTH_SCAN (требуется для Android 12+)
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+        } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "Missing BLUETOOTH_SCAN permission, cannot start scan")
-            return
+        } else {
+            startScan()
         }
-        startScan()
     }
 
     private fun startScan() {
