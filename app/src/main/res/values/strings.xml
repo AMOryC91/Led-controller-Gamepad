@@ -1,1 +1,19 @@
-
+<resources>
+    <string name="app_name">Controller Led GAMEPAD</string>
+    <string name="author">by @XAP4KTEP</string>
+    <string-array name="effects">
+        <item>Красный</item>
+        <item>Зеленый</item>
+        <item>Синий</item>
+        <item>Белый</item>
+        <item>Переливание RGB</item>
+        <item>Красивое переливание</item>
+        <item>Радуга</item>
+        <item>Мигание</item>
+        <item>Режим ПОЛИЦИЯ</item>
+        <item>Подсветка от музыки</item>
+        <item>Цвет от батареи</item>
+        <item>Random режим</item>
+        <item>Breathing эффект</item>
+    </string-array>
+</resources>
