@@ -47,12 +47,13 @@ class BluetoothController(private val context: Context) {
 
     private fun startScan() {
         if (isScanning) return
-        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
+        val adapter = bluetoothAdapter
+        if (adapter == null || !adapter.isEnabled) {
             Log.e(TAG, "Cannot start scan: Bluetooth not available")
             return
         }
 
-        val scanner = bluetoothAdapter.bluetoothLeScanner
+        val scanner = adapter.bluetoothLeScanner
         if (scanner == null) {
             Log.e(TAG, "Cannot start scan: BluetoothLeScanner is null")
             return
