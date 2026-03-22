@@ -1,11 +1,14 @@
 package com.example.gamepadledcontroller
 
+import android.Manifest
 import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.ParcelUuid
 import android.util.Log
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -28,11 +31,18 @@ class BluetoothController(private val context: Context) {
     init {
         if (bluetoothAdapter == null) {
             Log.e(TAG, "BluetoothAdapter is null")
-        } else if (!bluetoothAdapter.isEnabled) {
-            Log.e(TAG, "Bluetooth is not enabled")
-        } else {
-            startScan()
+            return
         }
+        if (!bluetoothAdapter.isEnabled) {
+            Log.e(TAG, "Bluetooth is not enabled")
+            return
+        }
+        // Проверяем наличие разрешения BLUETOOTH_SCAN (требуется для Android 12+)
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "Missing BLUETOOTH_SCAN permission, cannot start scan")
+            return
+        }
+        startScan()
     }
 
     private fun startScan() {
@@ -44,7 +54,7 @@ class BluetoothController(private val context: Context) {
 
         val scanner = bluetoothAdapter.bluetoothLeScanner
         if (scanner == null) {
-            Log.e(TAG, "Cannot start scan: BluetoothLeScanner is null (missing BLUETOOTH_SCAN permission?)")
+            Log.e(TAG, "Cannot start scan: BluetoothLeScanner is null")
             return
         }
 
