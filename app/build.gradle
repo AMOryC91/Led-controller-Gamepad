@@ -46,5 +46,6 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-service:2.7.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
 
-    implementation 'org.jtransforms:jtransforms:2.4.0'
+    // Исправленная зависимость для FFT
+    implementation 'net.sourceforge.jtransforms:jtransforms:2.4.0'
 }
