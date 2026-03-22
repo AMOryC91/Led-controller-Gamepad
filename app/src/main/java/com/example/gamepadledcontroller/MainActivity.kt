@@ -16,12 +16,18 @@ import com.example.gamepadledcontroller.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private var pendingStartService = false
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val allGranted = permissions.values.all { it }
         if (allGranted) {
             Toast.makeText(this, "Все разрешения получены", Toast.LENGTH_SHORT).show()
+            if (pendingStartService) {
+                startLedService()
+                pendingStartService = false
+            }
         } else {
             Toast.makeText(this, "Некоторые разрешения не предоставлены", Toast.LENGTH_LONG).show()
         }
@@ -35,7 +41,12 @@ class MainActivity : AppCompatActivity() {
         checkPermissions()
 
         binding.btnStartService.setOnClickListener {
-            startLedService()
+            if (hasAllPermissions()) {
+                startLedService()
+            } else {
+                pendingStartService = true
+                checkPermissions()
+            }
         }
 
         binding.btnStopService.setOnClickListener {
@@ -80,23 +91,35 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Сервис остановлен", Toast.LENGTH_SHORT).show()
     }
 
-    private fun checkPermissions() {
-        val requiredPermissions = mutableListOf(
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.RECORD_AUDIO
-        )
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            requiredPermissions.add(Manifest.permission.BLUETOOTH)
-            requiredPermissions.add(Manifest.permission.BLUETOOTH_ADMIN)
+    private fun hasAllPermissions(): Boolean {
+        val requiredPermissions = getRequiredPermissions()
+        return requiredPermissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
+    }
 
+    private fun checkPermissions() {
+        val requiredPermissions = getRequiredPermissions()
         val needRequest = requiredPermissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-
         if (needRequest.isNotEmpty()) {
             permissionLauncher.launch(needRequest.toTypedArray())
         }
+    }
+
+    private fun getRequiredPermissions(): List<String> {
+        val permissions = mutableListOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.FOREGROUND_SERVICE,
+            Manifest.permission.FOREGROUND_SERVICE_DATA_SYNC
+        )
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            permissions.add(Manifest.permission.BLUETOOTH)
+            permissions.add(Manifest.permission.BLUETOOTH_ADMIN)
+        }
+        return permissions
     }
 }
