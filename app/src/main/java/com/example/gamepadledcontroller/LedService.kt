@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -17,7 +18,7 @@ class LedService : Service() {
     private val binder = LocalBinder()
     private lateinit var bluetoothController: BluetoothController
     private lateinit var effects: Effects
-    private lateinit var musicAnalyzer: MusicAnalyzer
+    private var musicAnalyzer: MusicAnalyzer? = null
     private lateinit var batteryMonitor: BatteryMonitor
     private var serviceJob: Job? = null
     private val isRunning = AtomicBoolean(false)
@@ -28,6 +29,7 @@ class LedService : Service() {
         const val EXTRA_MODE = "mode"
         const val NOTIFICATION_ID = 1001
         const val CHANNEL_ID = "led_controller_channel"
+        private const val TAG = "LedService"
     }
 
     inner class LocalBinder : Binder() {
@@ -39,16 +41,27 @@ class LedService : Service() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
 
-        bluetoothController = BluetoothController(this)
+        try {
+            bluetoothController = BluetoothController(this)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing BluetoothController", e)
+            bluetoothController = BluetoothController(this) // fallback, но лучше пересоздать позже
+        }
+
         effects = Effects()
-        musicAnalyzer = MusicAnalyzer()
+
+        try {
+            musicAnalyzer = MusicAnalyzer()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing MusicAnalyzer", e)
+            musicAnalyzer = null
+        }
+
         batteryMonitor = BatteryMonitor(this)
 
-        // Регистрируем ресивер для автозапуска при перезагрузке
         val filter = IntentFilter(Intent.ACTION_BOOT_COMPLETED)
         registerReceiver(bootReceiver, filter)
 
-        // Регистрируем ресивер для смены режима из Activity
         val modeFilter = IntentFilter(ACTION_CHANGE_MODE)
         registerReceiver(modeChangeReceiver, modeFilter)
     }
@@ -83,14 +96,18 @@ class LedService : Service() {
                     "Радуга" -> effects.rainbow()
                     "Мигание" -> effects.blink()
                     "Режим ПОЛИЦИЯ" -> effects.police()
-                    "Подсветка от музыки" -> musicAnalyzer.getMusicColor()
+                    "Подсветка от музыки" -> musicAnalyzer?.getMusicColor() ?: effects.green()
                     "Цвет от батареи" -> batteryMonitor.getBatteryColor()
                     "Random режим" -> effects.random()
                     "Breathing эффект" -> effects.breathing()
                     else -> effects.red()
                 }
-                bluetoothController.sendColor(color)
-                delay(50) // частота обновления ~20 fps
+                try {
+                    bluetoothController.sendColor(color)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error sending color", e)
+                }
+                delay(50)
             }
         }
     }
@@ -98,14 +115,22 @@ class LedService : Service() {
     private fun stopLedControl() {
         isRunning.set(false)
         serviceJob?.cancel()
-        bluetoothController.disconnect()
+        try {
+            bluetoothController.disconnect()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error disconnecting Bluetooth", e)
+        }
     }
 
     override fun onDestroy() {
         stopLedControl()
-        musicAnalyzer.release()
-        unregisterReceiver(bootReceiver)
-        unregisterReceiver(modeChangeReceiver)
+        musicAnalyzer?.release()
+        try {
+            unregisterReceiver(bootReceiver)
+            unregisterReceiver(modeChangeReceiver)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering receivers", e)
+        }
         super.onDestroy()
     }
 
