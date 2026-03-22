@@ -17,31 +17,41 @@ class BluetoothController(private val context: Context) {
     private var hidReportCharacteristic: BluetoothGattCharacteristic? = null
     private val isConnected = AtomicBoolean(false)
     private var connectJob: Job? = null
+    private var isScanning = false
 
     companion object {
         private const val TAG = "BluetoothController"
-        // HID Service UUID (стандартный для BLE HID)
         val HID_SERVICE_UUID = ParcelUuid(UUID.fromString("00001812-0000-1000-8000-00805f9b34fb"))
-        // Report Characteristic UUID (стандартный для HID)
         val REPORT_CHAR_UUID = ParcelUuid(UUID.fromString("00002A4D-0000-1000-8000-00805f9b34fb"))
     }
 
     init {
-        startScan()
+        if (bluetoothAdapter == null) {
+            Log.e(TAG, "BluetoothAdapter is null")
+        } else if (!bluetoothAdapter.isEnabled) {
+            Log.e(TAG, "Bluetooth is not enabled")
+        } else {
+            startScan()
+        }
     }
 
     private fun startScan() {
+        if (isScanning) return
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-            Log.e(TAG, "Bluetooth не включен")
+            Log.e(TAG, "Cannot start scan: Bluetooth not available")
             return
         }
 
         val scanner = bluetoothAdapter.bluetoothLeScanner
+        if (scanner == null) {
+            Log.e(TAG, "Cannot start scan: BluetoothLeScanner is null (missing BLUETOOTH_SCAN permission?)")
+            return
+        }
+
         val scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 val device = result.device
                 val name = device.name ?: ""
-                // Ищем устройства с именем, содержащим "gamepad", "controller", "dualshock", "xbox"
                 if (name.contains("gamepad", ignoreCase = true) ||
                     name.contains("controller", ignoreCase = true) ||
                     name.contains("dualshock", ignoreCase = true) ||
@@ -50,6 +60,7 @@ class BluetoothController(private val context: Context) {
                     Log.d(TAG, "Найден возможный геймпад: $name")
                     connect(device)
                     scanner.stopScan(this)
+                    isScanning = false
                 }
             }
         }
@@ -58,11 +69,17 @@ class BluetoothController(private val context: Context) {
             .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
         scanner.startScan(null, scanSettings, scanCallback)
+        isScanning = true
+        Log.d(TAG, "Started BLE scan")
     }
 
     private fun connect(device: BluetoothDevice) {
         connectJob = CoroutineScope(Dispatchers.IO).launch {
-            bluetoothGatt = device.connectGatt(context, false, gattCallback)
+            try {
+                bluetoothGatt = device.connectGatt(context, false, gattCallback)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error connecting to device", e)
+            }
         }
     }
 
@@ -77,7 +94,6 @@ class BluetoothController(private val context: Context) {
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     Log.d(TAG, "Отключено от геймпада")
                     isConnected.set(false)
-                    // Попробовать переподключиться
                     connectJob?.cancel()
                     startScan()
                 }
@@ -109,19 +125,26 @@ class BluetoothController(private val context: Context) {
         val green = (rgb shr 8) and 0xFF
         val blue = rgb and 0xFF
 
-        // Формируем HID Output Report. Предполагаем reportId = 0x02 (для некоторых геймпадов)
         val report = byteArrayOf(0x02, red.toByte(), green.toByte(), blue.toByte())
 
-        hidReportCharacteristic?.let { characteristic ->
-            characteristic.value = report
-            characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-            bluetoothGatt?.writeCharacteristic(characteristic)
+        try {
+            hidReportCharacteristic?.let { characteristic ->
+                characteristic.value = report
+                characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                bluetoothGatt?.writeCharacteristic(characteristic)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending color", e)
         }
     }
 
     fun disconnect() {
-        bluetoothGatt?.disconnect()
-        bluetoothGatt?.close()
+        try {
+            bluetoothGatt?.disconnect()
+            bluetoothGatt?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error disconnecting", e)
+        }
         isConnected.set(false)
     }
 }
