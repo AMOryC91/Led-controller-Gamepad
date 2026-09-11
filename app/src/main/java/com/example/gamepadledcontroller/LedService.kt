@@ -33,6 +33,20 @@ class LedService : Service() {
         fun getService(): LedService = this@LedService
     }
 
+    fun getDiagnostics(): String =
+        if (::bluetoothController.isInitialized) bluetoothController.getDiagnostics() else "Сервис инициализируется..."
+
+    fun getPairedDevices(): List<android.bluetooth.BluetoothDevice> =
+        if (::bluetoothController.isInitialized) bluetoothController.getPairedDevices() else emptyList()
+
+    fun connectToDevice(device: android.bluetooth.BluetoothDevice) {
+        if (::bluetoothController.isInitialized) bluetoothController.connectManually(device)
+    }
+
+    fun rescan() {
+        if (::bluetoothController.isInitialized) bluetoothController.rescan()
+    }
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()

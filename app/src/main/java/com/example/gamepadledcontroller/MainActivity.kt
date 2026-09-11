@@ -1,14 +1,22 @@
 package com.example.gamepadledcontroller
 
 import android.Manifest
+import android.bluetooth.BluetoothDevice
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.gamepadledcontroller.databinding.ActivityMainBinding
@@ -17,6 +25,31 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var pendingStartService = false
+
+    private var ledService: LedService? = null
+    private var isBound = false
+    private val statusHandler = Handler(Looper.getMainLooper())
+    private val statusPoller = object : Runnable {
+        override fun run() {
+            binding.tvStatus.text = ledService?.getDiagnostics() ?: "Сервис не запущен"
+            statusHandler.postDelayed(this, 1000)
+        }
+    }
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as? LedService.LocalBinder
+            ledService = binder?.getService()
+            isBound = true
+            statusHandler.post(statusPoller)
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            ledService = null
+            isBound = false
+            statusHandler.removeCallbacks(statusPoller)
+        }
+    }
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -53,7 +86,55 @@ class MainActivity : AppCompatActivity() {
             stopLedService()
         }
 
+        binding.btnDevices.setOnClickListener {
+            showDevicePicker()
+        }
+
+        binding.btnRescan.setOnClickListener {
+            ledService?.rescan()
+            Toast.makeText(this, "Повторный поиск запущен", Toast.LENGTH_SHORT).show()
+        }
+
         setupModeSpinner()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        bindService(Intent(this, LedService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isBound) {
+            unbindService(serviceConnection)
+            isBound = false
+        }
+        statusHandler.removeCallbacks(statusPoller)
+    }
+
+    private fun showDevicePicker() {
+        val service = ledService
+        if (service == null) {
+            Toast.makeText(this, "Сначала включи сервис", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Нет разрешения BLUETOOTH_CONNECT", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val devices: List<BluetoothDevice> = service.getPairedDevices()
+        if (devices.isEmpty()) {
+            Toast.makeText(this, "Нет сопряжённых устройств. Сначала сопряги геймпад в настройках Bluetooth.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val names = devices.map { it.name ?: it.address }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Выбери устройство")
+            .setItems(names) { _, which ->
+                service.connectToDevice(devices[which])
+                Toast.makeText(this, "Подключаюсь к ${names[which]}...", Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun setupModeSpinner() {
