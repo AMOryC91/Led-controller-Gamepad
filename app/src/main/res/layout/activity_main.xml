@@ -52,6 +52,36 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:drawable/btn_dropdown"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnDevices"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Выбрать устройство"
         android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btnRescan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Искать заново"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Статус подключения:"
+        android:textSize="14sp"
+        android:textColor="@color/white"
+        android:layout_marginBottom="4dp"/>
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="—"
+        android:textSize="13sp"
+        android:textColor="@color/teal_200"/>
 
 </LinearLayout>
