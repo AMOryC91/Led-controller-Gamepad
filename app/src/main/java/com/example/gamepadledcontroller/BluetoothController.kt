@@ -57,6 +57,10 @@ class BluetoothController(private val context: Context) {
 
         val scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    Log.e(TAG, "Missing BLUETOOTH_CONNECT permission, cannot read device info")
+                    return
+                }
                 val device = result.device
                 val name = device.name ?: ""
                 if (name.contains("gamepad", ignoreCase = true) ||

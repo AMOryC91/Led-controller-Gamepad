@@ -1,10 +1,7 @@
 package com.example.gamepadledcontroller
 
 import android.app.*
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -58,12 +55,6 @@ class LedService : Service() {
         }
 
         batteryMonitor = BatteryMonitor(this)
-
-        val filter = IntentFilter(Intent.ACTION_BOOT_COMPLETED)
-        registerReceiver(bootReceiver, filter)
-
-        val modeFilter = IntentFilter(ACTION_CHANGE_MODE)
-        registerReceiver(modeChangeReceiver, modeFilter)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -125,12 +116,6 @@ class LedService : Service() {
     override fun onDestroy() {
         stopLedControl()
         musicAnalyzer?.release()
-        try {
-            unregisterReceiver(bootReceiver)
-            unregisterReceiver(modeChangeReceiver)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error unregistering receivers", e)
-        }
         super.onDestroy()
     }
 
@@ -165,28 +150,4 @@ class LedService : Service() {
         manager.notify(NOTIFICATION_ID, notification)
     }
 
-    private val bootReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-                val startIntent = Intent(context, LedService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(startIntent)
-                } else {
-                    context.startService(startIntent)
-                }
-            }
-        }
-    }
-
-    private val modeChangeReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == ACTION_CHANGE_MODE) {
-                val newMode = intent.getStringExtra(EXTRA_MODE)
-                if (newMode != null) {
-                    currentMode = newMode
-                    updateNotification()
-                }
-            }
-        }
-    }
 }

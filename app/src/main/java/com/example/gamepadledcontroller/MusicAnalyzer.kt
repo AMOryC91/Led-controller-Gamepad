@@ -40,6 +40,13 @@ class MusicAnalyzer {
         }
     }
 
+    // FFT требует размер степени двойки — округляем буфер вверх и дополняем нулями
+    private val fftSize = run {
+        var size = 1
+        while (size < bufferSize) size *= 2
+        size
+    }
+
     fun getMusicColor(): Int {
         if (!isRecording) return 0x00FF00
 
@@ -48,8 +55,8 @@ class MusicAnalyzer {
             val read = audioRecord?.read(buffer, 0, bufferSize) ?: 0
             if (read <= 0) return 0x00FF00
 
-            val doubleBuffer = DoubleArray(bufferSize)
-            for (i in 0 until bufferSize) {
+            val doubleBuffer = DoubleArray(fftSize)
+            for (i in 0 until read) {
                 doubleBuffer[i] = buffer[i].toDouble()
             }
 
@@ -59,8 +66,8 @@ class MusicAnalyzer {
             var mid = 0.0   // средние (250-4000 Hz)
             var high = 0.0  // высокие (4000-20000 Hz)
 
-            for (i in 0 until bufferSize / 2) {
-                val freq = i * sampleRate.toDouble() / bufferSize
+            for (i in 0 until fftSize / 2) {
+                val freq = i * sampleRate.toDouble() / fftSize
                 val magnitude = fftResult[i]
                 when {
                     freq < 250 -> low += magnitude
